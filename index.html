@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Dieta</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a18;
+    --muted: #6b6b68;
+    --accent: #1a1a18;
+    --green: #2d7a4a;
+    --green-bg: #eef7f2;
+    --red: #b03a2e;
+    --red-bg: #fdf0ee;
+    --blue: #1e5fa8;
+    --blue-bg: #eef4fc;
+    --radius: 12px;
+  }
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 17px; font-weight: 500; letter-spacing: -0.3px; }
+  header span { font-size: 13px; color: var(--muted); }
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 24px;
+  }
+  .tab {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .main { max-width: 600px; margin: 0 auto; padding: 20px 16px; }
+
+  /* AVUI */
+  .today-date { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .entry-form {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .entry-form h2 { font-size: 14px; font-weight: 500; margin-bottom: 16px; }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-group input:focus { border-color: var(--text); }
+  .form-group input[type="date"] { font-size: 14px; }
+  .dieta-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border);
+    background: var(--bg);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--muted);
+  }
+  .toggle-btn.yes.active { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .toggle-btn.no.active { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .save-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--text);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .save-btn:hover { opacity: 0.85; }
+  .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .save-msg {
+    text-align: center;
+    font-size: 13px;
+    margin-top: 10px;
+    min-height: 18px;
+    color: var(--green);
+  }
+  .save-msg.error { color: var(--red); }
+
+  /* STATS CARDS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-value { font-size: 22px; font-weight: 500; letter-spacing: -0.5px; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .positive { color: var(--red); }
+  .negative { color: var(--green); }
+  .neutral { color: var(--muted); }
+
+  /* CHART */
+  .chart-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .chart-header h2 { font-size: 14px; font-weight: 500; }
+  .chart-select {
+    font-size: 12px;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  .chart-wrap { position: relative; height: 180px; }
+
+  /* HISTORIAL */
+  .section-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .day-list { display: flex; flex-direction: column; gap: 1px; }
+  .day-item {
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: 80px 70px 60px 1fr 80px;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 8px;
+    border-radius: 0;
+    transition: background 0.1s;
+  }
+  .day-item:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .day-item:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+  .day-item:only-child { border-radius: var(--radius); }
+  .day-item:hover { background: #f5f4f1; }
+  .day-date { font-size: 13px; color: var(--muted); }
+  .day-pes { font-size: 15px; font-weight: 500; }
+  .day-evol { font-size: 13px; text-align: center; }
+  .day-dieta { text-align: center; }
+  .pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .pill.si { background: var(--green-bg); color: var(--green); }
+  .pill.no { background: var(--red-bg); color: var(--red); }
+  .day-passos { font-size: 13px; color: var(--muted); text-align: right; }
+  .list-header {
+    display: grid;
+    grid-template-columns: 80px 70px 60px 1fr 80px;
+    padding: 8px 16px;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* FILTER */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 0.5px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.1s;
+  }
+  .filter-btn.active { background: var(--text); color: white; border-color: var(--text); }
+
+  /* STEPS CHART */
+  .steps-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .steps-legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* No data */
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+  /* Config section */
+  .config-section {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .config-section h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .config-section p { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .config-section input[type="text"], .config-section input[type="url"] {
+    width: 100%;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    font-family: monospace;
+  }
+  .config-section input:focus { border-color: var(--text); }
+
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .day-item { grid-template-columns: 72px 60px 50px 1fr 70px; padding: 10px 12px; }
+    .list-header { grid-template-columns: 72px 60px 50px 1fr 70px; padding: 8px 12px; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Control Dieta</h1>
+  <span id="header-date"></span>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showPanel('avui')">Avui</button>
+  <button class="tab" onclick="showPanel('grafic')">Gràfic</button>
+  <button class="tab" onclick="showPanel('historial')">Historial</button>
+  <button class="tab" onclick="showPanel('config')">Config</button>
+</div>
+
+<div class="main">
+
+  <!-- PANEL AVUI -->
+  <div id="panel-avui" class="panel active">
+    <div class="stats-grid" id="stats-cards"></div>
+
+    <div class="entry-form">
+      <h2>Nova entrada</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="inp-data">
+        </div>
+        <div class="form-group">
+          <label>Pes (kg)</label>
+          <input type="number" id="inp-pes" step="0.1" min="40" max="200" placeholder="86.5">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Passos</label>
+        <input type="number" id="inp-passos" placeholder="8000" min="0" max="100000">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Dieta feta?</label>
+        <div class="dieta-toggle">
+          <button class="toggle-btn yes active" id="btn-si" onclick="setDieta('SÍ')">✓ Sí</button>
+          <button class="toggle-btn no" id="btn-no" onclick="setDieta('NO')">✗ No</button>
+        </div>
+      </div>
+      <button class="save-btn" id="save-btn" onclick="saveEntry()">Desar</button>
+      <div class="save-msg" id="save-msg"></div>
+    </div>
+  </div>
+
+  <!-- PANEL GRÀFIC -->
+  <div id="panel-grafic" class="panel">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h2>Evolució del pes</h2>
+        <select class="chart-select" id="chart-period" onchange="renderCharts()">
+          <option value="all">Tot</option>
+          <!-- opcions per mes generades dinàmicament -->
+        </select>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-pes"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <h2>Passos diaris</h2>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-passos"></canvas></div>
+      <div class="steps-legend">
+        <span><span class="dot" style="background:#1a1a18"></span>Passos</span>
+        <span><span class="dot" style="background:#e8b44b"></span>Obj. 10.000</span>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <h2>Dieta: resum</h2>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;padding:8px 0">
+        <div style="position:relative;height:120px;width:120px;flex-shrink:0"><canvas id="chart-dieta"></canvas></div>
+        <div id="dieta-stats" style="flex:1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL HISTORIAL -->
+  <div id="panel-historial" class="panel">
+    <div class="filter-bar" id="filter-bar">
+      <!-- generat dinàmicament -->
+    </div>
+    <p class="section-title">Registres</p>
+    <div class="list-header">
+      <span>Data</span>
+      <span>Pes</span>
+      <span>Evol.</span>
+      <span style="text-align:center">Dieta</span>
+      <span style="text-align:right">Passos</span>
+    </div>
+    <div class="day-list" id="historial-list"></div>
+  </div>
+
+  <!-- PANEL CONFIG -->
+  <div id="panel-config" class="panel">
+    <div class="config-section">
+      <h3>Google Sheets</h3>
+      <p>URL del web app (Google Apps Script):</p>
+      <input type="url" id="cfg-script-url" placeholder="https://script.google.com/macros/s/.../exec" oninput="saveConfig()">
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="save-btn" style="width:auto;padding:10px 20px" onclick="syncFromSheet()">↓ Sincronitzar ara</button>
+        <span id="load-status" style="font-size:13px;color:var(--muted)"></span>
+      </div>
+    </div>
+    <div class="config-section">
+      <h3>Com configurar-ho</h3>
+      <p>1. Obre el teu Google Sheets → <strong>Extensions → Apps Script</strong></p>
+      <p style="margin-top:6px">2. Enganxa el codi de l'script i desa</p>
+      <p style="margin-top:6px">3. <strong>Implementar → Nova implementació → Aplicació web</strong></p>
+      <p style="margin-top:6px">4. Executar com: <em>Jo</em> · Accés: <em>Qualsevol</em></p>
+      <p style="margin-top:6px">5. Copia l'URL i enganxa-la al camp de dalt</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DADES INICIALS (del full Excel) ──────────────────────────────────────────
+const INITIAL_DATA = [
+  ["2026-01-01",87.1,null,"SÍ",10778],
+  ["2026-01-02",86.5,-0.6,"SÍ",10076],
+  ["2026-01-03",87.4,0.3,"SÍ",6812],
+  ["2026-01-04",87.0,-0.1,"SÍ",4075],
+  ["2026-01-05",87.0,-0.1,"SÍ",5976],
+  ["2026-01-06",86.6,-0.5,"SÍ",10008],
+  ["2026-01-07",86.6,-0.5,"SÍ",4582],
+  ["2026-01-08",86.6,-0.5,"SÍ",12070],
+  ["2026-01-09",86.6,-0.5,"SÍ",8112],
+  ["2026-01-10",87.0,-0.1,"SÍ",8963],
+  ["2026-01-11",87.0,-0.1,"SÍ",11495],
+  ["2026-01-12",87.0,-0.1,"SÍ",10547],
+  ["2026-01-13",86.5,-0.6,"SÍ",10238],
+  ["2026-01-14",86.5,-0.6,"SÍ",7904],
+  ["2026-01-15",87.0,-0.1,"SÍ",11185],
+  ["2026-01-16",87.0,-0.1,"SÍ",2997],
+  ["2026-01-17",87.0,-0.1,"SÍ",6037],
+  ["2026-01-18",87.0,-0.1,"SÍ",9792],
+  ["2026-01-19",86.6,-0.5,"SÍ",5804],
+  ["2026-01-20",86.6,-0.5,"SÍ",7762],
+  ["2026-01-21",86.6,-0.5,"SÍ",7268],
+  ["2026-01-22",85.9,-1.2,"SÍ",7425],
+  ["2026-01-23",85.9,-1.2,"SÍ",7919],
+  ["2026-01-24",85.9,-1.2,"SÍ",3824],
+  ["2026-01-25",86.4,-0.7,"SÍ",3029],
+  ["2026-01-26",86.0,-1.1,"SÍ",7910],
+  ["2026-01-27",86.0,-1.1,"SÍ",10003],
+  ["2026-01-28",86.0,-1.1,"SÍ",10003],
+  ["2026-01-29",86.0,-1.1,"SÍ",5447],
+  ["2026-01-30",86.1,-1.0,"SÍ",4854],
+  ["2026-01-31",86.1,-1.0,"SÍ",11793],
+  ["2026-02-01",86.5,0.0,"NO",2753],
+  ["2026-02-02",85.9,-0.6,"SÍ",8592],
+  ["2026-02-03",86.3,-0.2,"SÍ",5643],
+  ["2026-02-04",86.3,-0.2,"SÍ",5509],
+  ["2026-02-05",85.8,-0.7,"NO",4801],
+  ["2026-02-06",86.2,-0.3,"SÍ",3828],
+  ["2026-02-08",85.7,-0.8,"NO",7229],
+  ["2026-02-09",86.2,-0.3,"SÍ",6147],
+  ["2026-02-10",86.6,0.1,"SÍ",6081],
+  ["2026-02-11",86.1,-0.4,"SÍ",5765],
+  ["2026-02-12",86.1,-0.4,"SÍ",6564],
+  ["2026-02-13",86.1,-0.4,"SÍ",5839],
+  ["2026-02-14",86.5,0.0,"SÍ",3906],
+  ["2026-02-15",86.5,0.0,"SÍ",3900],
+  ["2026-02-16",85.9,-0.6,"SÍ",6873],
+  ["2026-02-17",86.4,-0.1,"NO",24245],
+  ["2026-02-18",86.4,-0.1,"SÍ",7188],
+  ["2026-02-19",86.4,-0.1,"SÍ",11233],
+  ["2026-02-20",86.4,-0.1,"SÍ",4793],
+  ["2026-02-21",86.9,0.4,"NO",8848],
+  ["2026-02-22",86.3,-0.2,"NO",3570],
+  ["2026-02-23",86.3,-0.2,"SÍ",6649],
+  ["2026-02-24",86.3,-0.2,"SÍ",10595],
+  ["2026-02-25",85.7,-0.8,"SÍ",10585],
+  ["2026-02-26",86.4,-0.1,"SÍ",7849],
+  ["2026-02-27",86.4,-0.1,"SÍ",11639],
+  ["2026-02-28",86.4,-0.1,"SÍ",2468],
+  ["2026-03-01",86.4,0.0,"SÍ",5572],
+  ["2026-03-02",86.4,0.0,"SÍ",10586],
+  ["2026-03-03",86.4,0.0,"SÍ",11448],
+  ["2026-03-04",86.9,0.5,"SÍ",10567],
+  ["2026-03-05",86.9,0.5,"SÍ",6339],
+  ["2026-03-06",86.9,0.5,"SÍ",11280],
+  ["2026-03-07",86.1,-0.3,"SÍ",3554],
+  ["2026-03-08",86.1,-0.3,"SÍ",3784],
+  ["2026-03-09",87.0,0.6,"SÍ",10343],
+  ["2026-03-10",86.7,0.3,"SÍ",6828],
+  ["2026-03-11",86.7,0.3,"SÍ",5744],
+  ["2026-03-12",86.7,0.3,"SÍ",9403],
+  ["2026-03-13",86.7,0.3,"SÍ",15849],
+  ["2026-03-14",86.7,0.3,"SÍ",3726],
+];
+
+// ── ESTAT ──────────────────────────────────────────────────────────────────
+let records = [];
+let dietaValue = 'SÍ';
+let activeFilter = 'all';
+let chartPes = null, chartPassos = null, chartDieta = null;
+
+async function loadData() {
+  const scriptUrl = localStorage.getItem('dieta_script_url');
+  if (scriptUrl) {
+    try {
+      showLoadingState(true);
+      const res = await fetch(`${scriptUrl}?action=read`);
+      const json = await res.json();
+      if (json.ok && json.records && json.records.length) {
+        records = json.records;
+        localStorage.setItem('dieta_records', JSON.stringify(records));
+        showLoadingState(false);
+        return;
+      }
+    } catch(e) {
+      console.warn('No s\'han pogut carregar les dades del full:', e);
+    }
+    showLoadingState(false);
+  }
+  // Fallback: localStorage o dades inicials de l'Excel
+  const saved = localStorage.getItem('dieta_records');
+  if (saved) {
+    records = JSON.parse(saved);
+  } else {
+    records = INITIAL_DATA.map(r => ({
+      data: r[0], pes: r[1], evol: r[2], dieta: r[3], passos: r[4]
+    }));
+    localStorage.setItem('dieta_records', JSON.stringify(records));
+  }
+}
+
+function saveData() {
+  localStorage.setItem('dieta_records', JSON.stringify(records));
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfg-script-url').value.trim();
+  localStorage.setItem('dieta_script_url', url);
+}
+
+async function syncFromSheet() {
+  const url = document.getElementById('cfg-script-url').value.trim();
+  if (!url) { showLoadingState(false); document.getElementById('load-status').textContent = 'Primer afegeix l\'URL'; return; }
+  localStorage.setItem('dieta_script_url', url);
+  showLoadingState(true);
+  try {
+    const res = await fetch(`${url}?action=read`);
+    const json = await res.json();
+    if (json.ok && json.records && json.records.length) {
+      records = json.records;
+      localStorage.setItem('dieta_records', JSON.stringify(records));
+      renderStats();
+      buildFilterBar();
+      buildChartMonthOptions();
+      document.getElementById('load-status').textContent = `✓ ${records.length} registres carregats`;
+    } else {
+      document.getElementById('load-status').textContent = 'El full no ha retornat dades';
+    }
+  } catch(e) {
+    document.getElementById('load-status').textContent = 'Error de connexió';
+  }
+}
+
+function showLoadingState(loading) {
+  const el = document.getElementById('load-status');
+  if (!el) return;
+  el.textContent = loading ? 'Carregant des de Google Sheets…' : '';
+}
+
+// ── UI ──────────────────────────────────────────────────────────────────────
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'grafic') setTimeout(renderCharts, 50);
+  if (name === 'historial') renderHistorial();
+}
+
+function setDieta(v) {
+  dietaValue = v;
+  document.getElementById('btn-si').classList.toggle('active', v === 'SÍ');
+  document.getElementById('btn-no').classList.toggle('active', v === 'NO');
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHistorial();
+}
+
+// ── DATA ────────────────────────────────────────────────────────────────────
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(d) {
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}`;
+}
+
+function calcEvol(data, pes) {
+  const sorted = [...records].sort((a,b) => a.data.localeCompare(b.data));
+  const prev = sorted.filter(r => r.data < data && r.pes != null).pop();
+  if (!prev) return null;
+  return Math.round((pes - prev.pes) * 10) / 10;
+}
+
+// ── DESAR ──────────────────────────────────────────────────────────────────
+async function saveEntry() {
+  const dataVal = document.getElementById('inp-data').value;
+  const pesVal = parseFloat(document.getElementById('inp-pes').value);
+  const passosVal = parseInt(document.getElementById('inp-passos').value) || null;
+
+  if (!dataVal || isNaN(pesVal)) {
+    showMsg('Omple la data i el pes', true); return;
+  }
+
+  const evol = calcEvol(dataVal, pesVal);
+  const entry = { data: dataVal, pes: pesVal, evol, dieta: dietaValue, passos: passosVal };
+
+  const existing = records.findIndex(r => r.data === dataVal);
+  if (existing >= 0) records[existing] = entry;
+  else records.push(entry);
+  records.sort((a,b) => a.data.localeCompare(b.data));
+  saveData();
+  renderStats();
+  buildFilterBar();
+  buildChartMonthOptions();
+
+  const scriptUrl = localStorage.getItem('dieta_script_url');
+  if (scriptUrl) {
+    showMsg('Desant al full…', false);
+    try {
+      const params = new URLSearchParams({
+        action: 'write',
+        data: dataVal,
+        pes: pesVal,
+        evol: evol != null ? evol : '',
+        dieta: dietaValue,
+        passos: passosVal || ''
+      });
+      const res = await fetch(`${scriptUrl}?${params}`);
+      const json = await res.json();
+      if (json.ok) {
+        showMsg('✓ Desat al Google Sheets', false);
+      } else {
+        showMsg('⚠ Desat localment (error: ' + (json.error || '?') + ')', true);
+      }
+    } catch(e) {
+      showMsg('⚠ Desat localment (sense connexió)', false);
+    }
+  } else {
+    showMsg('✓ Desat localment', false);
+  }
+}
+
+function showMsg(text, isError) {
+  const el = document.getElementById('save-msg');
+  el.textContent = text;
+  el.className = 'save-msg' + (isError ? ' error' : '');
+  if (!isError) setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// ── STATS ──────────────────────────────────────────────────────────────────
+function renderStats() {
+  const valid = records.filter(r => r.pes != null);
+  if (!valid.length) return;
+
+  const last = valid[valid.length - 1];
+  const first = valid[0];
+  const total = Math.round((last.pes - first.pes) * 10) / 10;
+  const avgPassos = valid.filter(r=>r.passos).length
+    ? Math.round(valid.filter(r=>r.passos).reduce((s,r)=>s+r.passos,0) / valid.filter(r=>r.passos).length)
+    : null;
+
+  const totalClass = total > 0 ? 'positive' : total < 0 ? 'negative' : 'neutral';
+  const evolClass = last.evol == null ? 'neutral' : last.evol > 0 ? 'positive' : last.evol < 0 ? 'negative' : 'neutral';
+  const evolStr = last.evol != null ? (last.evol > 0 ? '+' : '') + last.evol + ' kg' : '—';
+
+  document.getElementById('stats-cards').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Pes actual</div>
+      <div class="stat-value">${last.pes}</div>
+      <div class="stat-sub">kg</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ahir</div>
+      <div class="stat-value ${evolClass}">${evolStr}</div>
+      <div class="stat-sub">${formatDate(last.data)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total</div>
+      <div class="stat-value ${totalClass}">${total > 0 ? '+' : ''}${total}</div>
+      <div class="stat-sub">des de l'inici</div>
+    </div>
+  `;
+}
+
+// ── HISTORIAL ──────────────────────────────────────────────────────────────
+const MONTH_NAMES = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
+const MONTH_KEYS  = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+
+function getAvailableMonths() {
+  const seen = new Set();
+  records.forEach(r => { if (r.data) seen.add(r.data.slice(0,7)); });
+  return [...seen].sort();
+}
+
+function buildFilterBar() {
+  const months = getAvailableMonths();
+  const bar = document.getElementById('filter-bar');
+  bar.innerHTML = `<button class="filter-btn active" onclick="setFilter('all',this)">Tot</button>` +
+    months.map(ym => {
+      const [y, m] = ym.split('-');
+      const label = MONTH_NAMES[parseInt(m)-1];
+      return `<button class="filter-btn" onclick="setFilter('${ym}',this)">${label}</button>`;
+    }).join('');
+}
+
+function buildChartMonthOptions() {
+  const months = getAvailableMonths();
+  const sel = document.getElementById('chart-period');
+  sel.innerHTML = `<option value="all">Tot</option>` +
+    months.map(ym => {
+      const [y, m] = ym.split('-');
+      const label = MONTH_NAMES[parseInt(m)-1];
+      return `<option value="${ym}">${label}</option>`;
+    }).join('');
+}
+
+function renderHistorial() {
+  let filtered = [...records].reverse();
+  if (activeFilter !== 'all') filtered = filtered.filter(r => r.data && r.data.startsWith(activeFilter));
+
+  const list = document.getElementById('historial-list');
+  if (!filtered.length) { list.innerHTML = '<div class="empty">No hi ha registres</div>'; return; }
+
+  list.innerHTML = filtered.map(r => {
+    // Evolució respecte al primer dia del mes
+    const monthPrefix = r.data.slice(0, 7);
+    const firstOfMonth = records.find(x => x.data.startsWith(monthPrefix) && x.pes != null);
+    let evol = null;
+    if (firstOfMonth && r.data !== firstOfMonth.data && r.pes != null) {
+      evol = Math.round((r.pes - firstOfMonth.pes) * 10) / 10;
+    }
+    const evolStr = evol != null ? (evol > 0 ? '+' : '') + evol.toFixed(1) : '—';
+    const evolClass = evol == null ? 'neutral' : evol > 0 ? 'positive' : evol < 0 ? 'negative' : 'neutral';
+    const pesStr = r.pes != null ? r.pes.toFixed(1) : '—';
+    const passosStr = r.passos != null ? r.passos.toLocaleString('ca') : '—';
+    return `<div class="day-item">
+      <span class="day-date">${formatDate(r.data)}</span>
+      <span class="day-pes">${pesStr} kg</span>
+      <span class="day-evol ${evolClass}">${evolStr}</span>
+      <span class="day-dieta"><span class="pill ${r.dieta === 'SÍ' ? 'si' : 'no'}">${r.dieta}</span></span>
+      <span class="day-passos">${passosStr}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── GRÀFICS ────────────────────────────────────────────────────────────────
+function getFilteredByPeriod() {
+  const period = document.getElementById('chart-period').value;
+  const valid = records.filter(r => r.pes != null);
+  if (period === 'all') return valid;
+  // period is "YYYY-MM"
+  return valid.filter(r => r.data && r.data.startsWith(period));
+}
+
+function renderCharts() {
+  const data = getFilteredByPeriod();
+  const labels = data.map(r => formatDate(r.data));
+  const pesos = data.map(r => r.pes);
+  const colors = data.map(r => r.dieta === 'SÍ' ? '#2d7a4a' : '#b03a2e');
+
+  // Pes chart
+  if (chartPes) chartPes.destroy();
+  chartPes = new Chart(document.getElementById('chart-pes'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: pesos,
+        borderColor: '#1a1a18',
+        backgroundColor: 'rgba(26,26,24,0.05)',
+        borderWidth: 1.5,
+        pointRadius: 3,
+        pointBackgroundColor: colors,
+        pointBorderColor: colors,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + ' kg' }
+      }},
+      scales: {
+        x: { ticks: { font: { size: 11 }, color: '#6b6b68', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { ticks: { font: { size: 11 }, color: '#6b6b68', callback: v => v.toFixed(1) },
+             grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+
+  // Passos chart
+  const passosData = getFilteredByPeriod().filter(r => r.passos != null);
+  const pLabels = passosData.map(r => formatDate(r.data));
+  const pVals = passosData.map(r => r.passos);
+  const pColors = pVals.map(v => v >= 10000 ? '#1a1a18' : '#d4cfc7');
+
+  if (chartPassos) chartPassos.destroy();
+  chartPassos = new Chart(document.getElementById('chart-passos'), {
+    type: 'bar',
+    data: {
+      labels: pLabels,
+      datasets: [
+        { data: pVals, backgroundColor: pColors, borderRadius: 3, borderSkipped: false },
+        { type: 'line', data: pLabels.map(()=>10000), borderColor: '#e8b44b', borderWidth: 1, borderDash: [4,3], pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ctx.dataset.type === 'line' ? null : ctx.parsed.y.toLocaleString('ca') + ' passos' }
+      }},
+      scales: {
+        x: { ticks: { font: { size: 10 }, color: '#6b6b68', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { ticks: { font: { size: 11 }, color: '#6b6b68', callback: v => (v/1000).toFixed(0) + 'k' },
+             grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+
+  // Dieta donut
+  const si = records.filter(r => r.dieta === 'SÍ').length;
+  const no = records.filter(r => r.dieta === 'NO').length;
+  const pct = Math.round(si / (si + no) * 100);
+
+  if (chartDieta) chartDieta.destroy();
+  chartDieta = new Chart(document.getElementById('chart-dieta'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Sí', 'No'],
+      datasets: [{ data: [si, no], backgroundColor: ['#2d7a4a', '#d4cfc7'], borderWidth: 0, hoverOffset: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '70%',
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  document.getElementById('dieta-stats').innerHTML = `
+    <div style="font-size:28px;font-weight:500;letter-spacing:-1px">${pct}%</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">dies amb dieta</div>
+    <div style="font-size:13px;margin-bottom:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2d7a4a;margin-right:6px"></span>${si} dies <span style="color:var(--green);font-weight:500">Sí</span></div>
+    <div style="font-size:13px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d4cfc7;margin-right:6px"></span>${no} dies <span style="color:var(--red);font-weight:500">No</span></div>
+  `;
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+async function init() {
+  const now = new Date();
+  const opts = { weekday:'long', day:'numeric', month:'long' };
+  document.getElementById('header-date').textContent = now.toLocaleDateString('ca', opts);
+  document.getElementById('inp-data').value = today();
+
+  const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwBkARqe4pTPYWLDTid-6hmMS00mXCEMsxUalO2kO1GNSUDRaM9nYr8gV3Wj4hA-hp4/exec';
+  const savedUrl = localStorage.getItem('dieta_script_url') || DEFAULT_SCRIPT_URL;
+  localStorage.setItem('dieta_script_url', savedUrl);
+  document.getElementById('cfg-script-url').value = savedUrl;
+
+  await loadData();
+  renderStats();
+  buildFilterBar();
+  buildChartMonthOptions();
+}
+
+init();
+</script>
+</body>
+</html>
