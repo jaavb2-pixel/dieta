@@ -312,6 +312,7 @@
   <button class="tab active" onclick="showPanel('avui')">Avui</button>
   <button class="tab" onclick="showPanel('grafic')">Gràfic</button>
   <button class="tab" onclick="showPanel('historial')">Historial</button>
+  <button class="tab" onclick="showPanel('resum')">Resum</button>
   <button class="tab" onclick="showPanel('config')">Config</button>
 </div>
 
@@ -398,6 +399,11 @@
       <span style="text-align:right">Passos</span>
     </div>
     <div class="day-list" id="historial-list"></div>
+  </div>
+
+  <!-- PANEL RESUM -->
+  <div id="panel-resum" class="panel">
+    <div id="resum-list"></div>
   </div>
 
   <!-- PANEL CONFIG -->
@@ -588,6 +594,7 @@ function showPanel(name) {
   event.currentTarget.classList.add('active');
   if (name === 'grafic') setTimeout(renderCharts, 50);
   if (name === 'historial') renderHistorial();
+  if (name === 'resum') renderResum();
 }
 
 function setDieta(v) {
@@ -846,7 +853,7 @@ function renderCharts() {
   const pesos = data.map(r => r.pes);
   const colors = data.map(r => r.dieta === 'SÍ' ? '#2d7a4a' : '#b03a2e');
 
-  // Pes chart
+  // Gràfic pes
   if (chartPes) chartPes.destroy();
   chartPes = new Chart(document.getElementById('chart-pes'), {
     type: 'line',
@@ -877,8 +884,8 @@ function renderCharts() {
     }
   });
 
-  // Passos chart
-  const passosData = getFilteredByPeriod().filter(r => r.passos != null);
+  // Gràfic passos
+  const passosData = data.filter(r => r.passos != null);
   const pLabels = passosData.map(r => formatDate(r.data));
   const pVals = passosData.map(r => r.passos);
   const pColors = pVals.map(v => v >= 10000 ? '#1a1a18' : '#d4cfc7');
@@ -890,7 +897,7 @@ function renderCharts() {
       labels: pLabels,
       datasets: [
         { data: pVals, backgroundColor: pColors, borderRadius: 3, borderSkipped: false },
-        { type: 'line', data: pLabels.map(()=>10000), borderColor: '#e8b44b', borderWidth: 1, borderDash: [4,3], pointRadius: 0, fill: false }
+        { type: 'line', data: pLabels.map(() => 10000), borderColor: '#e8b44b', borderWidth: 1, borderDash: [4,3], pointRadius: 0, fill: false }
       ]
     },
     options: {
@@ -907,9 +914,9 @@ function renderCharts() {
   });
 
   // Dieta donut
-  const si = records.filter(r => r.dieta === 'SÍ').length;
-  const no = records.filter(r => r.dieta === 'NO').length;
-  const pct = Math.round(si / (si + no) * 100);
+  const si = data.filter(r => r.dieta === 'SÍ').length;
+  const no = data.filter(r => r.dieta === 'NO').length;
+  const pct = si + no > 0 ? Math.round(si / (si + no) * 100) : 0;
 
   if (chartDieta) chartDieta.destroy();
   chartDieta = new Chart(document.getElementById('chart-dieta'), {
@@ -930,6 +937,72 @@ function renderCharts() {
     <div style="font-size:13px;margin-bottom:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2d7a4a;margin-right:6px"></span>${si} dies <span style="color:var(--green);font-weight:500">Sí</span></div>
     <div style="font-size:13px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d4cfc7;margin-right:6px"></span>${no} dies <span style="color:var(--red);font-weight:500">No</span></div>
   `;
+}
+
+// ── RESUM MENSUAL ──────────────────────────────────────────────────────────
+function renderResum() {
+  const months = getAvailableMonths();
+  const container = document.getElementById('resum-list');
+  if (!months.length) { container.innerHTML = '<div class="empty">No hi ha dades</div>'; return; }
+
+  container.innerHTML = months.slice().reverse().map(ym => {
+    const [y, m] = ym.split('-');
+    const nomMes = MONTH_NAMES[parseInt(m)-1];
+    const dies = records.filter(r => r.data && r.data.startsWith(ym) && r.pes != null);
+    if (!dies.length) return '';
+
+    const pesMig = (dies.reduce((s,r) => s+r.pes, 0) / dies.length).toFixed(1);
+    const pesInici = dies[0].pes;
+    const pesFinal = dies[dies.length-1].pes;
+    const evolMes = Math.round((pesFinal - pesInici) * 10) / 10;
+    const evolStr = (evolMes > 0 ? '+' : '') + evolMes.toFixed(1);
+    const evolClass = evolMes > 0 ? 'positive' : evolMes < 0 ? 'negative' : 'neutral';
+
+    const si = dies.filter(r => r.dieta === 'SÍ').length;
+    const no = dies.filter(r => r.dieta === 'NO').length;
+    const pctDieta = Math.round(si / (si + no) * 100);
+
+    const ambPassos = dies.filter(r => r.passos != null);
+    const passosMig = ambPassos.length
+      ? Math.round(ambPassos.reduce((s,r) => s+r.passos, 0) / ambPassos.length).toLocaleString('ca')
+      : '—';
+    const diesObj = ambPassos.filter(r => r.passos >= 10000).length;
+
+    return `
+      <div class="chart-card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+          <h2 style="font-size:16px;font-weight:500">${nomMes} ${y}</h2>
+          <span style="font-size:13px;color:var(--muted)">${dies.length} dies registrats</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pes mig</div>
+            <div style="font-size:20px;font-weight:500">${pesMig}</div>
+            <div style="font-size:11px;color:var(--muted)">kg</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Evolució</div>
+            <div style="font-size:20px;font-weight:500" class="${evolClass}">${evolStr}</div>
+            <div style="font-size:11px;color:var(--muted)">kg al mes</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dieta</div>
+            <div style="font-size:20px;font-weight:500;color:${pctDieta>=80?'var(--green)':pctDieta>=60?'#b8860b':'var(--red)'}">${pctDieta}%</div>
+            <div style="font-size:11px;color:var(--muted)">${si} de ${si+no} dies</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:0.5px solid var(--border);padding-top:10px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Passos mig/dia</div>
+            <div style="font-size:15px;font-weight:500">${passosMig}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Dies ≥ 10.000 passos</div>
+            <div style="font-size:15px;font-weight:500">${diesObj} <span style="font-size:12px;color:var(--muted)">de ${ambPassos.length}</span></div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
