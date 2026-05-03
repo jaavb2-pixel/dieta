@@ -599,13 +599,18 @@ function setDieta(v) {
 let selectedHistorialMonths = new Set(['all']);
 
 function setFilter(ym, btn) {
+  const bar = document.getElementById('filter-bar');
+  const allBtn = bar.querySelector('.filter-btn');  // primer botó = "Tot"
+
   if (ym === 'all') {
     selectedHistorialMonths = new Set(['all']);
-    document.querySelectorAll('#filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    bar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    allBtn.classList.add('active');
   } else {
+    // Treu "Tot"
     selectedHistorialMonths.delete('all');
-    document.querySelector('#filter-bar .filter-btn').classList.remove('active');
+    allBtn.classList.remove('active');
+    // Afegeix o treu el mes clicat
     if (selectedHistorialMonths.has(ym)) {
       selectedHistorialMonths.delete(ym);
       btn.classList.remove('active');
@@ -613,9 +618,10 @@ function setFilter(ym, btn) {
       selectedHistorialMonths.add(ym);
       btn.classList.add('active');
     }
+    // Si no queda cap, torna a "Tot"
     if (selectedHistorialMonths.size === 0) {
       selectedHistorialMonths.add('all');
-      document.querySelector('#filter-bar .filter-btn').classList.add('active');
+      allBtn.classList.add('active');
     }
   }
   renderHistorial();
@@ -768,14 +774,18 @@ function buildChartMonthOptions() {
 }
 
 function toggleChartMonth(ym, btn) {
+  const bar = document.getElementById('chart-month-bar');
+  const allBtn = bar.querySelector('.filter-btn');  // primer botó = "Tot"
+
   if (ym === 'all') {
     selectedChartMonths = new Set(['all']);
-    document.querySelectorAll('#chart-month-bar .filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    bar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    allBtn.classList.add('active');
   } else {
-    // Treu "Tot" si estava actiu
+    // Treu "Tot"
     selectedChartMonths.delete('all');
-    document.querySelector('#chart-month-bar .filter-btn').classList.remove('active');
+    allBtn.classList.remove('active');
+    // Afegeix o treu el mes clicat
     if (selectedChartMonths.has(ym)) {
       selectedChartMonths.delete(ym);
       btn.classList.remove('active');
@@ -783,10 +793,10 @@ function toggleChartMonth(ym, btn) {
       selectedChartMonths.add(ym);
       btn.classList.add('active');
     }
-    // Si no queda cap seleccionat, torna a "Tot"
+    // Si no queda cap, torna a "Tot"
     if (selectedChartMonths.size === 0) {
       selectedChartMonths.add('all');
-      document.querySelector('#chart-month-bar .filter-btn').classList.add('active');
+      allBtn.classList.add('active');
     }
   }
   renderCharts();
