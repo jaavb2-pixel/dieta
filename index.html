@@ -976,14 +976,14 @@ function renderResum() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div style="text-align:center">
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pes mig</div>
-            <div style="font-size:20px;font-weight:500">${pesMig}</div>
-            <div style="font-size:11px;color:var(--muted)">kg</div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Inici</div>
+            <div style="font-size:20px;font-weight:500">${pesInici.toFixed(1)}</div>
+            <div style="font-size:11px;color:var(--muted)">kg (${formatDate(dies[0].data)})</div>
           </div>
           <div style="text-align:center">
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Evolució</div>
-            <div style="font-size:20px;font-weight:500" class="${evolClass}">${evolStr}</div>
-            <div style="font-size:11px;color:var(--muted)">kg al mes</div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Final</div>
+            <div style="font-size:20px;font-weight:500">${pesFinal.toFixed(1)}</div>
+            <div style="font-size:11px;color:var(--muted)">kg (${formatDate(dies[dies.length-1].data)})</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dieta</div>
