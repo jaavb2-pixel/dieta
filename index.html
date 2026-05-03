@@ -302,7 +302,10 @@
 
 <header>
   <h1>Control Dieta</h1>
-  <span id="header-date"></span>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+    <span id="header-date"></span>
+    <span id="header-sync" style="font-size:11px;color:var(--muted)"></span>
+  </div>
 </header>
 
 <div class="tabs">
@@ -348,13 +351,15 @@
 
   <!-- PANEL GRÀFIC -->
   <div id="panel-grafic" class="panel">
+    <div style="margin-bottom:16px">
+      <p class="section-title" style="margin-bottom:8px">Període</p>
+      <div class="filter-bar" id="chart-month-bar">
+        <!-- generat dinàmicament -->
+      </div>
+    </div>
     <div class="chart-card">
       <div class="chart-header">
         <h2>Evolució del pes</h2>
-        <select class="chart-select" id="chart-period" onchange="renderCharts()">
-          <option value="all">Tot</option>
-          <!-- opcions per mes generades dinàmicament -->
-        </select>
       </div>
       <div class="chart-wrap"><canvas id="chart-pes"></canvas></div>
     </div>
@@ -498,26 +503,31 @@ const INITIAL_DATA = [
 // ── ESTAT ──────────────────────────────────────────────────────────────────
 let records = [];
 let dietaValue = 'SÍ';
-let activeFilter = 'all';
-let chartPes = null, chartPassos = null, chartDieta = null;
+let selectedHistorialMonths = new Set(['all']);let chartPes = null, chartPassos = null, chartDieta = null;
 
 async function loadData() {
   const scriptUrl = localStorage.getItem('dieta_script_url');
   if (scriptUrl) {
     try {
-      showLoadingState(true);
+      showLoadingState('Carregant des de Google Sheets…');
       const res = await fetch(`${scriptUrl}?action=read`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.ok && json.records && json.records.length) {
         records = json.records;
         localStorage.setItem('dieta_records', JSON.stringify(records));
-        showLoadingState(false);
+        showLoadingState(`✓ ${records.length} registres carregats del full`);
+        setTimeout(() => showLoadingState(''), 3000);
         return;
+      } else {
+        throw new Error('Resposta buida o incorrecta del full');
       }
     } catch(e) {
-      console.warn('No s\'han pogut carregar les dades del full:', e);
+      showLoadingState('⚠ Error: ' + e.message + ' — usant dades locals');
+      console.warn('loadData error:', e);
     }
-    showLoadingState(false);
+  } else {
+    showLoadingState('');
   }
   // Fallback: localStorage o dades inicials de l'Excel
   const saved = localStorage.getItem('dieta_records');
@@ -563,10 +573,11 @@ async function syncFromSheet() {
   }
 }
 
-function showLoadingState(loading) {
+function showLoadingState(text) {
   const el = document.getElementById('load-status');
-  if (!el) return;
-  el.textContent = loading ? 'Carregant des de Google Sheets…' : '';
+  if (el) el.textContent = text;
+  const hdr = document.getElementById('header-sync');
+  if (hdr) hdr.textContent = text;
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────
@@ -585,10 +596,28 @@ function setDieta(v) {
   document.getElementById('btn-no').classList.toggle('active', v === 'NO');
 }
 
-function setFilter(f, btn) {
-  activeFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+let selectedHistorialMonths = new Set(['all']);
+
+function setFilter(ym, btn) {
+  if (ym === 'all') {
+    selectedHistorialMonths = new Set(['all']);
+    document.querySelectorAll('#filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    selectedHistorialMonths.delete('all');
+    document.querySelector('#filter-bar .filter-btn').classList.remove('active');
+    if (selectedHistorialMonths.has(ym)) {
+      selectedHistorialMonths.delete(ym);
+      btn.classList.remove('active');
+    } else {
+      selectedHistorialMonths.add(ym);
+      btn.classList.add('active');
+    }
+    if (selectedHistorialMonths.size === 0) {
+      selectedHistorialMonths.add('all');
+      document.querySelector('#filter-bar .filter-btn').classList.add('active');
+    }
+  }
   renderHistorial();
 }
 
@@ -719,22 +748,55 @@ function buildFilterBar() {
       const label = MONTH_NAMES[parseInt(m)-1];
       return `<button class="filter-btn" onclick="setFilter('${ym}',this)">${label}</button>`;
     }).join('');
+  selectedHistorialMonths = new Set(['all']);
 }
+
+let selectedChartMonths = new Set(['all']);
 
 function buildChartMonthOptions() {
   const months = getAvailableMonths();
-  const sel = document.getElementById('chart-period');
-  sel.innerHTML = `<option value="all">Tot</option>` +
+  const bar = document.getElementById('chart-month-bar');
+  if (!bar) return;
+  bar.innerHTML =
+    `<button class="filter-btn active" onclick="toggleChartMonth('all',this)">Tot</button>` +
     months.map(ym => {
       const [y, m] = ym.split('-');
       const label = MONTH_NAMES[parseInt(m)-1];
-      return `<option value="${ym}">${label}</option>`;
+      return `<button class="filter-btn" onclick="toggleChartMonth('${ym}',this)">${label}</button>`;
     }).join('');
+  selectedChartMonths = new Set(['all']);
+}
+
+function toggleChartMonth(ym, btn) {
+  if (ym === 'all') {
+    selectedChartMonths = new Set(['all']);
+    document.querySelectorAll('#chart-month-bar .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    // Treu "Tot" si estava actiu
+    selectedChartMonths.delete('all');
+    document.querySelector('#chart-month-bar .filter-btn').classList.remove('active');
+    if (selectedChartMonths.has(ym)) {
+      selectedChartMonths.delete(ym);
+      btn.classList.remove('active');
+    } else {
+      selectedChartMonths.add(ym);
+      btn.classList.add('active');
+    }
+    // Si no queda cap seleccionat, torna a "Tot"
+    if (selectedChartMonths.size === 0) {
+      selectedChartMonths.add('all');
+      document.querySelector('#chart-month-bar .filter-btn').classList.add('active');
+    }
+  }
+  renderCharts();
 }
 
 function renderHistorial() {
   let filtered = [...records].reverse();
-  if (activeFilter !== 'all') filtered = filtered.filter(r => r.data && r.data.startsWith(activeFilter));
+  if (!selectedHistorialMonths.has('all')) {
+    filtered = filtered.filter(r => r.data && selectedHistorialMonths.has(r.data.slice(0, 7)));
+  }
 
   const list = document.getElementById('historial-list');
   if (!filtered.length) { list.innerHTML = '<div class="empty">No hi ha registres</div>'; return; }
@@ -763,11 +825,9 @@ function renderHistorial() {
 
 // ── GRÀFICS ────────────────────────────────────────────────────────────────
 function getFilteredByPeriod() {
-  const period = document.getElementById('chart-period').value;
   const valid = records.filter(r => r.pes != null);
-  if (period === 'all') return valid;
-  // period is "YYYY-MM"
-  return valid.filter(r => r.data && r.data.startsWith(period));
+  if (selectedChartMonths.has('all')) return valid;
+  return valid.filter(r => r.data && selectedChartMonths.has(r.data.slice(0, 7)));
 }
 
 function renderCharts() {
@@ -870,9 +930,8 @@ async function init() {
   document.getElementById('inp-data').value = today();
 
   const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwBkARqe4pTPYWLDTid-6hmMS00mXCEMsxUalO2kO1GNSUDRaM9nYr8gV3Wj4hA-hp4/exec';
-  const savedUrl = localStorage.getItem('dieta_script_url') || DEFAULT_SCRIPT_URL;
-  localStorage.setItem('dieta_script_url', savedUrl);
-  document.getElementById('cfg-script-url').value = savedUrl;
+  localStorage.setItem('dieta_script_url', DEFAULT_SCRIPT_URL);
+  document.getElementById('cfg-script-url').value = DEFAULT_SCRIPT_URL;
 
   await loadData();
   renderStats();
